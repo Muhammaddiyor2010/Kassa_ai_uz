@@ -1,0 +1,52 @@
+from aiogram import Router, F
+from aiogram.types import Message
+from aiogram.filters.command import Command
+from loader import db, bot
+import io
+from google import genai
+from google.genai import types
+import mimetypes
+from aiogram.types import InputFile
+import io
+import tempfile
+import os
+from config import load_config
+from states.auth import AuthStates
+
+config = load_config()
+client = genai.Client(api_key=config.gemini.api_key)
+
+from utils.gemini import Geminiutils
+
+kirim_router: Router = Router()
+
+gemini = Geminiutils()
+
+
+@kirim_router.message(F.voice)
+async def audio_msg(message: Message):
+    file_id = message.voice.file_id
+    
+    file = await bot.get_file(file_id)
+
+    file_obj = io.BytesIO()
+ 
+
+    file_obj.seek(0)
+
+    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as temp_file:
+        await bot.download_file(file.file_path, destination=temp_file)
+        temp_file_path = temp_file.name
+
+    try:
+        kirimtext = gemini.get_text(temp_file_path)
+        await message.reply(f" {kirimtext}")
+        await gemini.add_chiqimlar(kirimtext, message.from_user.id)
+
+    except Exception as e:
+  # Temporary file'ni o'chiramiz
+        print(f"errors: {e}")
+        await message.reply(f"error: {e}")
+    finally:
+      
+        os.unlink(temp_file_path)
