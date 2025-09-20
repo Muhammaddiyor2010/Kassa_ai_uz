@@ -18,10 +18,16 @@ def check_python_version():
 def check_env_file():
     """Check if .env file exists"""
     if not os.path.exists('.env'):
-        print("❌ Error: .env file not found!")
-        print("Please create .env file with:")
-        print("BOT_TOKEN=your_telegram_bot_token")
-        print("GEMINI_API_KEY=your_gemini_api_key")
+        if os.path.exists('.env.dist'):
+            print("❌ Error: .env file not found!")
+            print("Please copy .env.dist to .env and fill in your tokens:")
+            print("cp .env.dist .env")
+            print("Then edit .env file with your actual tokens")
+        else:
+            print("❌ Error: .env file not found!")
+            print("Please create .env file with:")
+            print("BOT_TOKEN=your_telegram_bot_token")
+            print("GEMINI_API_KEY=your_gemini_api_key")
         sys.exit(1)
     print("✅ .env file found")
 

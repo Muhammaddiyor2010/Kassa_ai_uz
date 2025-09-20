@@ -40,9 +40,12 @@ pip install -r requirements/base.txt
 
 4. **Configure environment variables**
 ```bash
-# Create .env file
-echo "BOT_TOKEN=your_telegram_bot_token" > .env
-echo "GEMINI_API_KEY=your_gemini_api_key" >> .env
+# Copy environment template
+cp .env.dist .env
+
+# Edit .env file with your actual tokens
+# BOT_TOKEN=your_telegram_bot_token
+# GEMINI_API_KEY=your_gemini_api_key
 ```
 
 5. **Run the bot**
@@ -86,7 +89,13 @@ python bot.py
 
 ### Environment Variables
 
-Create a `.env` file with the following variables:
+Copy `.env.dist` to `.env` and fill in your actual tokens:
+
+```bash
+cp .env.dist .env
+```
+
+Then edit `.env` file with your actual values:
 
 ```env
 BOT_TOKEN=your_telegram_bot_token
