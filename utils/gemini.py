@@ -53,7 +53,7 @@ Izoh: {izoh}"""
     def get_text(self,audio):
 
 
-        myfile = self.client.files.upload(file=audio)
+        myfile = self.client.files.upload(path=audio)
         prompt = "Ushbu o'zbek tilidagi audioni matnga aylantir"
 
         response = self.client.models.generate_content(
