@@ -42,18 +42,7 @@ async def audio_msg(message: Message):
         chiqimtext = gemini.get_text(temp_file_path)
         await message.reply(f" {chiqimtext}")
         await gemini.add_chiqimlar(chiqimtext, message.from_user.id)
-        # # Gemini'ga yuklash
-        # myfile = client.files.upload(file=temp_file_path)
-        # # myfile = client.files.upload(file=file_obj, config={ mime_type: "audio/ogg" })
-
-        # prompt = "Ushbu o'zbek tilidagi audioni matnga aylantir"
-
-        # response = client.models.generate_content(
-        # model='gemini-2.5-flash',
-        # contents=[prompt, myfile]
-        # )
-        # print(response.text)
-        # await message.reply(f" {response.text}")
+        # Eski kod - endi ishlatilmaydi
 
     except Exception as e:
   # Temporary file'ni o'chiramiz

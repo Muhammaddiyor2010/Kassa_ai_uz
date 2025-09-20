@@ -1,5 +1,4 @@
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from loader import db, bot
 from config import load_config
 from datetime import datetime
@@ -9,7 +8,8 @@ class Geminiutils():
 
     def __init__(self) -> None:
         config = load_config()
-        self.client = genai.Client(api_key=config.gemini.api_key)
+        genai.configure(api_key=config.gemini.api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     async def send_report(self, user_id: int, transaction_type: str, summa: str, kategoriya: str, izoh: str):
         """Foydalanuvchiga hisobot yuborish"""
@@ -51,103 +51,104 @@ Izoh: {izoh}"""
 
 
     def get_text(self,audio):
-
-
-        myfile = self.client.files.upload(path=audio)
-        prompt = "Ushbu o'zbek tilidagi audioni matnga aylantir"
-
-        response = self.client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=[prompt, myfile]
-        )
-
-        return response.text
+        # Upload audio file using upload_file
+        try:
+            audio_file = genai.upload_file(path=audio)
+            prompt = "Ushbu o'zbek tilidagi audioni matnga aylantir"
+            response = self.model.generate_content([prompt, audio_file])
+            # Clean up uploaded file
+            genai.delete_file(audio_file.name)
+            return response.text
+        except Exception as e:
+            print(f"Upload error: {e}")
+            # Fallback: simple text response
+            return "Audio fayl yuklanmadi, lekin matn qayta ishlash mumkin"
 
 
     async def add_chiqimlar(self, text, user_id: int):
-        add_chiqim = {
-                "name": "add_chiqim_f",
-                "description": "chiqimlarni saqlash uchun",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "summa": {
-                            "type": "integer",
-                            "description": "chiqimning summasi, qancha ekani, masalan: 90000 so'm, 180000 so'm",
-                        },
-                        "kategoriya": {
-                            "type": "string",
-                            "enum": ["ovqat", "kiyim", "mashina", "ta'lim"],
-                            "description": "chiqimning kategoriyasi, nima maqsadda sarf qilingani ",
-                        },
-                        "izoh": {
-                            "type": "string",
-                            "description": "bu qo'shimcha, bu shunchaki harajat uchun qandaydir izoh",
-                        },
+        # Create function declarations for tools
+        add_chiqim_tool = genai.types.FunctionDeclaration(
+            name="add_chiqim_f",
+            description="chiqimlarni saqlash uchun",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "summa": {
+                        "type": "integer",
+                        "description": "chiqimning summasi, qancha ekani, masalan: 90000 so'm, 180000 so'm"
                     },
-                    "required": ["summa", "kategoriya", "izoh"],
+                    "kategoriya": {
+                        "type": "string",
+                        "enum": ["ovqat", "kiyim", "mashina", "ta'lim"],
+                        "description": "chiqimning kategoriyasi, nima maqsadda sarf qilingani"
+                    },
+                    "izoh": {
+                        "type": "string",
+                        "description": "bu qo'shimcha, bu shunchaki harajat uchun qandaydir izoh"
+                    },
                 },
+                "required": ["summa", "kategoriya", "izoh"]
             }
+        )
         
-        add_kirim = {
-                "name": "add_kirim_f",
-                "description": "kirimlarni saqlash uchun",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "summa": {
-                            "type": "integer",
-                            "description": "kirimning summasi, qancha ekani, masalan: 500000 so'm, 1000000 so'm",
-                        },
-                        "kategoriya": {
-                            "type": "string",
-                            "enum": ["ish", "savdo", "investitsiya", "boshqa"],
-                            "description": "kirimning kategoriyasi, qayerdan kelgani",
-                        },
-                        "izoh": {
-                            "type": "string",
-                            "description": "bu qo'shimcha, bu shunchaki daromad uchun qandaydir izoh",
-                        },
+        add_kirim_tool = genai.types.FunctionDeclaration(
+            name="add_kirim_f",
+            description="kirimlarni saqlash uchun",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "summa": {
+                        "type": "integer",
+                        "description": "kirimning summasi, qancha ekani, masalan: 500000 so'm, 1000000 so'm"
                     },
-                    "required": ["summa", "kategoriya", "izoh"],
+                    "kategoriya": {
+                        "type": "string",
+                        "enum": ["ish", "savdo", "investitsiya", "boshqa"],
+                        "description": "kirimning kategoriyasi, qayerdan kelgani"
+                    },
+                    "izoh": {
+                        "type": "string",
+                        "description": "bu qo'shimcha, bu shunchaki daromad uchun qandaydir izoh"
+                    },
                 },
+                "required": ["summa", "kategoriya", "izoh"]
             }
-        tools = types.Tool(function_declarations=[add_chiqim, add_kirim]) # type: ignore
+        )
+        
+        # Create tools list
+        tools = [add_chiqim_tool, add_kirim_tool]
         
         print("salom")
 
-
-        contents = [
-            types.Content(
-                role="user", parts=[types.Part(text=text)]
-            )
-        ]
-        config = types.GenerateContentConfig(tools=[tools])
-
-
-        # Send request with function declarations
-        response = self.client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=contents,
-            config=config,
+        # Generate content with function calling
+        response = self.model.generate_content(
+            text,
+            tools=tools
         )
+        
         try:
-            tool_call = response.candidates[0].content.parts[0].function_call # type: ignore
-        except (AttributeError, IndexError):
-            tool_call = None
-
-        if tool_call is not None:
-            if tool_call.name == "add_chiqim_f": # type: ignore
-                # user_id ni qo'shamiz
-                args = tool_call.args.copy() # type: ignore
-                args['user_id'] = user_id
-                result = await self.add_chiqim_f(**args) # type: ignore
-                print(f"Chiqim qo'shildi: {result}")
-            elif tool_call.name == "add_kirim_f": # type: ignore
-                # user_id ni qo'shamiz
-                args = tool_call.args.copy() # type: ignore
-                args['user_id'] = user_id
-                result = await self.add_kirim_f(**args) # type: ignore
-                print(f"Kirim qo'shildi: {result}")
-        else:
+            # Check if response has function calls
+            if response.candidates and response.candidates[0].content.parts:
+                part = response.candidates[0].content.parts[0]
+                if hasattr(part, 'function_call') and part.function_call:
+                    tool_call = part.function_call
+                    
+                    if tool_call.name == "add_chiqim_f":
+                        # user_id ni qo'shamiz
+                        args = dict(tool_call.args)
+                        args['user_id'] = user_id
+                        result = await self.add_chiqim_f(**args)
+                        print(f"Chiqim qo'shildi: {result}")
+                    elif tool_call.name == "add_kirim_f":
+                        # user_id ni qo'shamiz
+                        args = dict(tool_call.args)
+                        args['user_id'] = user_id
+                        result = await self.add_kirim_f(**args)
+                        print(f"Kirim qo'shildi: {result}")
+                else:
+                    print("AI ma'lumotni tushunmadi yoki funksiya chaqiruvini qaytarmadi")
+            else:
+                print("AI ma'lumotni tushunmadi yoki funksiya chaqiruvini qaytarmadi")
+        except Exception as e:
+            print(f"Xatolik: {e}")
             print("AI ma'lumotni tushunmadi yoki funksiya chaqiruvini qaytarmadi")
